@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CityPulse — Smart City Dashboard</title>
+  <style>
+    /* Reset + base */
+    :root{
+      --bg:#0f1724; --card:#0b1220; --muted:#9aa6b2; --accent:#06b6d4; --accent-2:#34d399;
+      --glass: rgba(255,255,255,0.03);
+      --w: 1100px;
+      font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+      color-scheme: dark;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#071021 0%, #07111a 100%);color:#e6eef6;display:flex;justify-content:center;padding:28px}
+    .app{width:100%;max-width:var(--w)}
+
+    header{display:flex;align-items:center;gap:16px;margin-bottom:20px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;font-weight:700}
+    h1{margin:0;font-size:20px}
+    nav{margin-left:auto;display:flex;gap:8px}
+    .nav-btn{background:transparent;border:1px solid transparent;padding:8px 12px;border-radius:8px;color:var(--muted);cursor:pointer}
+    .nav-btn.active{color:#071022;background:linear-gradient(90deg,var(--accent),var(--accent-2));border-color:rgba(255,255,255,0.04)}
+
+    /* layout */
+    .container{display:grid;grid-template-columns:1fr;gap:16px}
+    .grid-2{display:grid;grid-template-columns:1fr 340px;gap:16px}
+    .card{background:var(--card);border-radius:12px;padding:16px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+    .muted{color:var(--muted);font-size:13px}
+
+    /* Home widgets */
+    .widgets{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .widget{padding:14px;border-radius:10px;background:var(--glass);min-height:110px}
+    .widget h3{margin:0;font-size:14px}
+    .metric{font-size:28px;font-weight:700;margin-top:8px}
+    .small{font-size:12px;color:var(--muted)}
+
+    /* AQI radial */
+    .aqi-wrap{display:flex;align-items:center;gap:14px}
+    .aqi-svg{width:90px;height:90px}
+
+    /* traffic bar */
+    .bar{background:rgba(255,255,255,0.04);border-radius:999px;height:14px;overflow:hidden}
+    .bar-inner{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:40%}
+
+    /* Right column */
+    .right-col .card + .card{margin-top:12px}
+
+    /* Alerts */
+    .filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+    .chip{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.02);cursor:pointer}
+    .chip.active{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#021018}
+    .alert{padding:10px;border-radius:8px;margin-bottom:8px;background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);display:flex;gap:12px;align-items:flex-start}
+    .alert .time{color:var(--muted);font-size:12px}
+
+    /* Map */
+    .map{width:100%;height:360px;border-radius:10px;overflow:hidden;background:linear-gradient(180deg,#071827,#04202a);position:relative}
+    svg.zone{width:100%;height:100%;display:block}
+    .zone:hover{cursor:pointer;opacity:0.95}
+    .zone.active{filter:drop-shadow(0 6px 12px rgba(0,200,220,0.12));}
+
+    /* tooltip & modal */
+    .overlay{position:fixed;inset:0;background:rgba(2,6,12,0.6);display:none;align-items:center;justify-content:center;padding:20px}
+    .overlay.show{display:flex}
+    .modal{background:#08121a;padding:18px;border-radius:12px;max-width:600px;width:100%;border:1px solid rgba(255,255,255,0.03)}
+    .modal h3{margin:0 0 6px 0}
+    .close{margin-left:auto;background:transparent;border:0;color:var(--muted);cursor:pointer}
+
+    /* form */
+    form .row{display:flex;flex-direction:column;margin-bottom:10px}
+    input,textarea,select{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:10px;border-radius:8px;color:inherit}
+    .error{color:#ffb4b4;font-size:13px;margin-top:6px}
+    .btn{padding:10px 12px;border-radius:8px;border:0;background:linear-gradient(90deg,var(--accent),var(--accent-2));cursor:pointer;color:#021018;font-weight:600}
+
+    footer{margin-top:16px;color:var(--muted);font-size:13px;text-align:center}
+
+    /* responsiveness */
+    @media (max-width:980px){.grid-2{grid-template-columns:1fr}.widgets{grid-template-columns:1fr}.right-col{order:2}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand">
+        <div class="logo">CP</div>
+        <div>
+          <h1>CityPulse</h1>
+          <div class="muted">Smart City Information Dashboard (client-side)</div>
+        </div>
+      </div>
+      <nav id="nav">
+        <button class="nav-btn active" data-view="home">Home</button>
+        <button class="nav-btn" data-view="alerts">Alerts</button>
+        <button class="nav-btn" data-view="map">Map</button>
+        <button class="nav-btn" data-view="contact">Citizen Connect</button>
+      </nav>
+    </header>
+
+    <main class="container">
+      <!-- Home -->
+      <section id="view-home" class="card view">
+        <div class="grid-2">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div>
+                <h2 style="margin:0">City Overview</h2>
+                <div class="muted">Quick stats & live time</div>
+              </div>
+              <div class="muted" id="live-datetime">--</div>
+            </div>
+
+            <div class="widgets">
+              <div class="widget card">
+                <h3>Temperature</h3>
+                <div class="metric" id="temp">--°C</div>
+                <div class="small" id="temp-desc">Feels like --</div>
+              </div>
+
+              <div class="widget card">
+                <h3>AQI</h3>
+                <div class="aqi-wrap">
+                  <svg class="aqi-svg" viewBox="0 0 36 36" id="aqi-svg">
+                    <path d="M18 2a16 16 0 1 1 0 32 16 16 0 1 1 0-32" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="3"/>
+                    <path id="aqi-arc" d="" fill="none" stroke-linecap="round" stroke-width="3"/>
+                    <text x="18" y="20" text-anchor="middle" font-size="6" fill="#e6eef6" id="aqi-text">--</text>
+                  </svg>
+                  <div>
+                    <div class="small">Air Quality</div>
+                    <div id="aqi-label" style="font-weight:700">--</div>
+                    <div class="muted" id="pollutants">PM2.5: --</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="widget card">
+                <h3>Traffic Density</h3>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <div class="small" id="traffic-percent">--%</div>
+                  <div style="width:180px">
+                    <div class="bar" aria-hidden="true"><div id="traffic-bar" class="bar-inner" style="width:10%"></div></div>
+                  </div>
+                </div>
+                <div class="muted" style="margin-top:8px">Realtime congestion index</div>
+              </div>
+            </div>
+
+            <div style="margin-top:16px" class="card">
+              <h3 style="margin-top:0">Trends</h3>
+              <div class="muted">Small sparkline-like visualization using CSS bars (client-side only)</div>
+              <div id="trend-bars" style="display:flex;gap:6px;margin-top:10px;align-items:end;height:60px"></div>
+            </div>
+
+          </div>
+
+          <aside class="right-col">
+            <div class="card">
+              <h3 style="margin-top:0">City Notices</h3>
+              <div class="muted">Latest simulated notice</div>
+              <div style="margin-top:10px" id="notice">No notices</div>
+            </div>
+
+            <div class="card" style="margin-top:12px">
+              <h3 style="margin-top:0">Quick Links</h3>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+                <button class="chip" data-view="alerts">View Alerts</button>
+                <button class="chip" data-view="map">Open Map</button>
+                <button class="chip" data-view="contact">Send Feedback</button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Alerts -->
+      <section id="view-alerts" class="card view" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div>
+            <h2 style="margin:0">City Alerts & News</h2>
+            <div class="muted">Filter and sort simulated civic updates</div>
+          </div>
+          <div>
+            <label class="muted">Sort: </label>
+            <select id="sort-select" style="background:transparent;border:1px solid rgba(255,255,255,0.03);padding:8px;border-radius:8px;color:inherit">
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="type">By Type</option>
+            </select>
+          </div>
+        </div>
+        <div class="filters" id="alert-filters"></div>
+        <div id="alerts-list"></div>
+      </section>
+
+      <!-- Map -->
+      <section id="view-map" class="card view" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div>
+            <h2 style="margin:0">Interactive City Map</h2>
+            <div class="muted">Hover zones and click to view details</div>
+          </div>
+          <div class="muted" id="map-legend">Zones: Parks · Hospitals · Schools · Malls</div>
+        </div>
+
+        <div class="map card">
+          <!-- Simple SVG grid map with 4 clickable zones -->
+          <svg class="zone" viewBox="0 0 600 360" id="city-svg">
+            <defs>
+              <linearGradient id="g1" x1="0" x2="1"><stop offset="0" stop-color="#054e4d"/><stop offset="1" stop-color="#08333a"/></linearGradient>
+            </defs>
+            <rect x="0" y="0" width="600" height="360" fill="url(#g1)"/>
+
+            <!-- Parks -->
+            <g id="zone-parks" data-id="parks">
+              <rect x="20" y="20" width="260" height="150" rx="10" fill="#0d5b40" opacity="0.9"/>
+              <text x="150" y="95" text-anchor="middle" fill="#dff6ee" font-size="18">Parks</text>
+            </g>
+
+            <!-- Hospitals -->
+            <g id="zone-hospitals" data-id="hospitals">
+              <rect x="320" y="20" width="260" height="150" rx="10" fill="#402030" opacity="0.9"/>
+              <text x="450" y="95" text-anchor="middle" fill="#ffeef0" font-size="18">Hospitals</text>
+            </g>
+
+            <!-- Schools -->
+            <g id="zone-schools" data-id="schools">
+              <rect x="20" y="200" width="260" height="140" rx="10" fill="#224b6e" opacity="0.9"/>
+              <text x="150" y="270" text-anchor="middle" fill="#dff0ff" font-size="18">Schools</text>
+            </g>
+
+            <!-- Malls -->
+            <g id="zone-malls" data-id="malls">
+              <rect x="320" y="200" width="260" height="140" rx="10" fill="#5a3a20" opacity="0.9"/>
+              <text x="450" y="270" text-anchor="middle" fill="#fff0e3" font-size="18">Malls</text>
+            </g>
+          </svg>
+        </div>
+      </section>
+
+      <!-- Contact -->
+      <section id="view-contact" class="card view" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div>
+            <h2 style="margin:0">Feedback & Citizen Connect</h2>
+            <div class="muted">Send feedback to city authorities (simulated)</div>
+          </div>
+          <div class="muted">Response time: simulated</div>
+        </div>
+
+        <form id="contact-form" class="card" style="padding:14px">
+          <div class="row">
+            <label class="muted">Name</label>
+            <input id="name" name="name" placeholder="Your full name" />
+            <div class="error" id="err-name" style="display:none"></div>
+          </div>
+          <div class="row">
+            <label class="muted">Email</label>
+            <input id="email" name="email" placeholder="you@example.com" />
+            <div class="error" id="err-email" style="display:none"></div>
+          </div>
+          <div class="row">
+            <label class="muted">Message</label>
+            <textarea id="message" rows="6" placeholder="Describe your issue or feedback"></textarea>
+            <div class="error" id="err-message" style="display:none"></div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button type="submit" class="btn">Send Message</button>
+            <div class="muted">Or reach us @CityPulse on social</div>
+          </div>
+        </form>
+      </section>
+
+    </main>
+
+    <footer class="muted">Designed for demonstration — client-side only | Deploy on GitHub Pages by uploading this single file</footer>
+
+    <!-- Modal overlay -->
+    <div id="overlay" class="overlay" aria-hidden="true">
+      <div class="modal" role="dialog" aria-modal="true">
+        <div style="display:flex;align-items:center;gap:8px">
+          <h3 id="modal-title">Details</h3>
+          <button class="close" id="modal-close">✕</button>
+        </div>
+        <div id="modal-body" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+  <script>
+    /***** Simulated data (client-side only) *****/
+    const CITY = {
+      name: 'Demo City',
+      weather: { temp: 27, feels: 29 },
+      aqi: { value: 72, pm25: 42 },
+      traffic: { percent: 46 },
+      trend: [12,18,25,30,22,28,32,26,18,20]
+    }
+
+    const ALERTS = [
+      {id:1,type:'Traffic',title:'Bridge maintenance on E-3',body:'Expect lane closures 9:00-16:00',time:'2025-11-14T07:30:00Z'},
+      {id:2,type:'Weather',title:'Heavy rain advisory',body:'Localized heavy showers expected, slippy roads',time:'2025-11-13T22:00:00Z'},
+      {id:3,type:'Health',title:'Flu vaccination drive',body:'Free vaccines at community centers this weekend',time:'2025-11-12T08:00:00Z'},
+      {id:4,type:'Public Notice',title:'Market timings changed',body:'Central market open till 8 PM for holidays',time:'2025-11-15T02:00:00Z'},
+      {id:5,type:'Traffic',title:'Accident on N-12',body:'Minor delays reported, use alternate route',time:'2025-11-14T03:20:00Z'}
+    ];
+
+    const ZONES = {
+      parks: {name:'Parks Zone',desc:'Multiple parks and recreation areas. Info: 042-555-0199'},
+      hospitals:{name:'Hospital District',desc:'General and specialized hospitals. Emergency: 042-555-0101'},
+      schools:{name:'Education Cluster',desc:'Primary and secondary schools. Office: 042-555-0123'},
+      malls:{name:'Commerce & Malls',desc:'Shopping and entertainment centers. Info: 042-555-0145'}
+    }
+
+    /***** Utilities *****/
+    const $ = s => document.querySelector(s);
+    const $$ = s => Array.from(document.querySelectorAll(s));
+
+    function formatDateTime(iso){
+      const d = new Date(iso);
+      return d.toLocaleString();
+    }
+
+    /***** Navigation and views *****/
+    $$('#nav .nav-btn').forEach(btn=>btn.addEventListener('click', e=>{setView(btn.dataset.view)}));
+    $$('.chip[data-view]').forEach(c=>c.addEventListener('click', e=>setView(c.dataset.view)));
+
+    function setView(name){
+      $$('.view').forEach(v=>v.style.display='none');
+      $('#view-'+name).style.display='block';
+      $$('#nav .nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
+      // clear any zone active state
+      $$('#city-svg g').forEach(g=>g.classList.remove('active'));
+    }
+
+    /***** Home rendering *****/
+    function renderHome(){
+      $('#temp').textContent = CITY.weather.temp + '°C';
+      $('#temp-desc').textContent = 'Feels like ' + CITY.weather.feels + '°C';
+      // AQI arc
+      const aqi = CITY.aqi.value;
+      const pct = Math.min(100, Math.max(0, aqi))/100;
+      const end = pct * 255.99; // arc length approximation
+      const arc = describeArc(18,18,14,0, pct*360);
+      const color = aqiColor(aqi);
+      const aqiArcEl = $('#aqi-arc');
+      aqiArcEl.setAttribute('d', arc);
+      aqiArcEl.setAttribute('stroke', color);
+      $('#aqi-text').textContent = aqi;
+      $('#aqi-label').textContent = aqiLabel(aqi);
+      $('#pollutants').textContent = 'PM2.5: ' + CITY.aqi.pm25;
+
+      // traffic
+      $('#traffic-percent').textContent = CITY.traffic.percent + '%';
+      $('#traffic-bar').style.width = CITY.traffic.percent + '%';
+
+      // trends
+      const container = $('#trend-bars'); container.innerHTML = '';
+      const max = Math.max(...CITY.trend);
+      CITY.trend.forEach(n=>{
+        const el = document.createElement('div');
+        el.style.width = '10px'; el.style.borderRadius='4px';
+        el.style.height = (n/max*100) + '%'; el.style.background = 'linear-gradient(180deg, rgba(6,182,212,0.95), rgba(52,211,153,0.95))';
+        container.appendChild(el);
+      });
+
+      // notice
+      $('#notice').textContent = ALERTS.slice(0,1)[0].title + ' — ' + ALERTS.slice(0,1)[0].body;
+    }
+
+    // small functions for AQI
+    function aqiLabel(v){ if(v<=50) return 'Good'; if(v<=100) return 'Moderate'; if(v<=150) return 'Unhealthy for Sensitive'; if(v<=200) return 'Unhealthy'; if(v<=300) return 'Very Unhealthy'; return 'Hazardous'; }
+    function aqiColor(v){ if(v<=50) return '#10b981'; if(v<=100) return '#f59e0b'; if(v<=150) return '#f97316'; if(v<=200) return '#ef4444'; if(v<=300) return '#7c3aed'; return '#7f1d1d'; }
+
+    // describeArc adapted for small svg circle arc on 36x36 viewbox
+    function polarToCartesian(cx,cy,r,deg){
+      const rad = (deg-90)*Math.PI/180.0;
+      return {x: cx + (r * Math.cos(rad)), y: cy + (r * Math.sin(rad))};
+    }
+    function describeArc(cx,cy,r,startAngle,endAngle){
+      const start = polarToCartesian(cx,cy,r,endAngle);
+      const end = polarToCartesian(cx,cy,r,startAngle);
+      const largeArcFlag = endAngle - startAngle <= 180 ? '0':'1';
+      const d = [
+        'M', start.x, start.y,
+        'A', r, r, 0, largeArcFlag, 0, end.x, end.y
+      ].join(' ');
+      return d;
+    }
+
+    /***** Alerts rendering with filters & sort *****/
+    const types = Array.from(new Set(ALERTS.map(a=>a.type)));
+    function renderFilters(){
+      const out = $('#alert-filters'); out.innerHTML='';
+      types.forEach(t=>{
+        const b = document.createElement('button'); b.className='chip'; b.textContent=t; b.dataset.type=t; b.addEventListener('click',()=>{b.classList.toggle('active'); renderAlerts();});
+        out.appendChild(b);
+      });
+      const clear = document.createElement('button'); clear.className='chip'; clear.textContent='Clear'; clear.addEventListener('click',()=>{$$('.chip').forEach(c=>c.classList.remove('active')); renderAlerts();});
+      out.appendChild(clear);
+    }
+
+    function renderAlerts(){
+      const list = $('#alerts-list'); list.innerHTML='';
+      let items = ALERTS.slice();
+      const activeTypes = $$('#alert-filters .chip.active').map(c=>c.dataset.type).filter(Boolean);
+      if(activeTypes.length) items = items.filter(i=>activeTypes.includes(i.type));
+      const sort = $('#sort-select').value;
+      if(sort==='newest') items.sort((a,b)=>new Date(b.time)-new Date(a.time));
+      if(sort==='oldest') items.sort((a,b)=>new Date(a.time)-new Date(b.time));
+      if(sort==='type') items.sort((a,b)=>a.type.localeCompare(b.type));
+
+      items.forEach(it=>{
+        const el = document.createElement('div'); el.className='alert';
+        el.innerHTML = `<div style=\"width:8px;height:8px;border-radius:50%;background:#06b6d4;margin-top:6px\"></div>
+          <div style=\"flex:1\"><strong>${it.title}</strong><div class=\"muted\">${it.body}</div></div>
+          <div class=\"time\">${formatDateTime(it.time)}</div>`;
+        el.addEventListener('click',()=>openModal(it.title, '<p>'+it.body+'</p><p class="muted">Type: '+it.type+'</p><p class="muted">Time: '+formatDateTime(it.time)+'</p>'));
+        list.appendChild(el);
+      });
+
+      if(items.length===0) list.innerHTML = '<div class="muted">No alerts match the selected filters.</div>';
+    }
+
+    $('#sort-select').addEventListener('change', renderAlerts);
+
+    /***** Map interaction *****
+     * Hover highlights and click shows modal with contact
+     */
+    $$('#city-svg g').forEach(g=>{
+      g.addEventListener('mouseenter', ()=>{g.style.opacity = '1'; g.classList.add('active');});
+      g.addEventListener('mouseleave', ()=>{g.style.opacity = '0.95'; g.classList.remove('active');});
+      g.addEventListener('click', ()=>{
+        const id = g.dataset.id;
+        const info = ZONES[id];
+        openModal(info.name, `<p>${info.desc}</p><p class=\"muted\">Zone id: ${id}</p>`);
+      });
+    });
+
+    /***** Modal logic (custom overlay) *****/
+    const overlay = $('#overlay');
+    function openModal(title, html){
+      $('#modal-title').textContent = title;
+      $('#modal-body').innerHTML = html;
+      overlay.classList.add('show'); overlay.setAttribute('aria-hidden','false');
+    }
+    function closeModal(){ overlay.classList.remove('show'); overlay.setAttribute('aria-hidden','true'); }
+    $('#modal-close').addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e)=>{ if(e.target===overlay) closeModal(); });
+
+    /***** Contact form validation (no alert/confirm) *****/
+    $('#contact-form').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      let ok = true;
+      const name = $('#name').value.trim();
+      const email = $('#email').value.trim();
+      const msg = $('#message').value.trim();
+      // reset
+      $$('#err-name,#err-email,#err-message').forEach(el=>el.style.display='none');
+
+      if(name.length < 2){ $('#err-name').textContent='Please enter your name.'; $('#err-name').style.display='block'; ok=false; }
+      if(!/^\S+@\S+\.\S+$/.test(email)){ $('#err-email').textContent='Please enter a valid email.'; $('#err-email').style.display='block'; ok=false; }
+      if(msg.length < 10){ $('#err-message').textContent='Message should be at least 10 characters.'; $('#err-message').style.display='block'; ok=false; }
+
+      if(!ok) return;
+
+      // simulate successful submission -> custom modal with social handles
+      openModal('Message sent', `<p>Thanks <strong>${escapeHtml(name)}</strong> — your message has been recorded (simulated).</p><p class=\"muted\">We recommend following @CityPulse on X / Twitter for live updates.</p>`);
+      $('#contact-form').reset();
+    });
+
+    function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+
+    /***** Live time updater *****/
+    function tick(){ const now = new Date(); $('#live-datetime').textContent = now.toLocaleString(); }
+    setInterval(tick,1000); tick();
+
+    /***** small helpers and init *****/
+    function init(){ renderHome(); renderFilters(); renderAlerts(); setView('home'); }
+    init();
+
+  </script>
+</body>
+</html>
