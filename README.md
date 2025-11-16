@@ -4,7 +4,7 @@ CityPulse is an interactive, client-side smart city dashboard designed to provid
 
 This project focuses on usability, interactivity, and clear data presentation through a clean, responsive UI, with all data (alerts, weather, etc.) stored in static JavaScript arrays or objects.
 
------
+----- 
 
 ## 🚀 Features
 
